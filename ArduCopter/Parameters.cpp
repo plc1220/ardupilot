@@ -180,6 +180,13 @@ const AP_Param::Info Copter::var_info[] = {
     // @User: Standard
     GSCALAR(super_simple,   "SUPER_SIMPLE",     0),
 
+    // @Param: AUTO_MAN_ALT
+    // @DisplayName: Auto Manual Altitude Control
+    // @Description: Enable auto/manual altitude control. This flight mode is based on the Auto and Alt_hold flight modes, which allows manual altitude control. While entering the height control the aircraft stops. It restarts the forward advance by giving it pitch input and continuing with the flight plan
+    // @Values: 0:Disabled,1:Enabled
+    // @User: Advanced
+    GSCALAR(auto_man_alt,   "AUTO_MAN_ALT",     0),
+
     // @Param: WP_YAW_BEHAVIOR
     // @DisplayName: Yaw behaviour during missions
     // @Description: Determines how the autopilot controls the yaw during missions and RTL
@@ -775,6 +782,13 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
     // @Bitmask: 0:ADSBMavlinkProcessing,1:DevOptionVFR_HUDRelativeAlt
     // @User: Advanced
     AP_GROUPINFO("DEV_OPTIONS", 7, ParametersG2, dev_options, 0),
+
+    // @Param: AUTO_MAN_ALT
+    // @DisplayName: Auto Manual Altitude Control
+    // @Description: This Behavior is based on the Auto and Alt_hold flight modes, which allows manual altitude control.While entering the height control the aircraft stops.it re starts the forward advance by giving it pitch input and continuing with the flight plan
+    // @Values: 0:Disabled,1:Enabled
+    // @User: Advanced
+    AP_GROUPINFO("AUTO_MAN_ALT", 8, ParametersG2, auto_man_alt, 0),
 
 #if BEACON_ENABLED == ENABLED
     // @Group: BCN

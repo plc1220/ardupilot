@@ -1,4 +1,6 @@
 {
     "cSpell.language": "en-GB",
-    "astyle.astylerc": "${workspaceFolder}/Tools/CodeStyle/astylerc"
+    "astyle.astylerc": "${workspaceFolder}/Tools/CodeStyle/astylerc",
+    "cmake.configureOnOpen": true,
+    "C_Cpp.dimInactiveRegions": false
 }

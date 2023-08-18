@@ -972,6 +972,8 @@ void ModeAuto::takeoff_run()
 //      called by auto_run at 100hz or more
 void ModeAuto::wp_run()
 {
+    float target_climb_rate = 0.0f;
+
     // if not armed set throttle to zero and exit immediately
     if (is_disarmed_or_landed()) {
         make_safe_ground_handling();
@@ -984,10 +986,50 @@ void ModeAuto::wp_run()
     // run waypoint controller
     copter.failsafe_terrain_set_status(wp_nav->update_wpnav());
 
+    if (g.auto_man_alt == 1){
+
+        // get pilot's desired climbrate
+        target_climb_rate = get_pilot_desired_climb_rate(channel_throttle->get_control_in());
+        target_climb_rate = constrain_float(target_climb_rate, -get_pilot_speed_dn(), g.pilot_speed_up);
+
+        // get avoidance adjusted climb rate
+        target_climb_rate = get_avoidance_adjusted_climbrate(target_climb_rate);
+
+        // get pilot desired lean angles Althold
+        float target_roll, target_pitch;
+        get_pilot_desired_lean_angles(target_roll, target_pitch, copter.aparm.angle_max, attitude_control->get_althold_lean_angle_max_cd());
+        
+        auto tolerance = std::numeric_limits<double>::epsilon();
+        double zero = 0.0;
+
+        // added control to resume flight
+        if (target_roll + tolerance >= zero || target_pitch + tolerance >= zero){
+            //Change of mode to be able to restart the automatic mode
+            //Restart the automatic mode
+            copter.mode_auto.init(true);
+            //Re initialise wpnav targets after stopping when giving control of alt
+            wp_nav->shift_wp_origin_and_destination_to_current_pos_xy();
+        }
+
+        // call position controller Alt_Hold add a2sAndres
+        target_climb_rate = get_pilot_desired_climb_rate(channel_throttle->get_control_in());
+        target_climb_rate = constrain_float(target_climb_rate, -get_pilot_speed_dn(), g.pilot_speed_up);
+
+
+       // update the vertical offset based on the surface measurement
+        copter.surface_tracking.update_surface_offset();
+
+        // Send the commanded climb rate to the position controller
+        pos_control->set_pos_target_z_from_climb_rate_cm(target_climb_rate);
+
+        // call z-axis position controller (wpnav should have already updated it's alt target)
+        pos_control->update_z_controller();
+        }
+
     // WP_Nav has set the vertical position control targets
     // run the vertical position controller and set output throttle
     pos_control->update_z_controller();
-
+    
     // call attitude controller with auto yaw
     attitude_control->input_thrust_vector_heading(pos_control->get_thrust_vector(), auto_yaw.get_heading());
 }
