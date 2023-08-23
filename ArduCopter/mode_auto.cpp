@@ -813,6 +813,16 @@ void ModeAuto::wp_run()
         }
     }
 
+    // process pilot's throttle input
+    float target_throttle = 0;
+    if (!copter.failsafe.radio ) {
+        target_throttle = get_pilot_desired_throttle(channel_throttle->get_control_in());
+        target_climb_rate = constrain_float(target_climb_rate, -get_pilot_speed_dn(), g.pilot_speed_up);
+        // if (!is_zero(target_throttle)) {
+        //     auto_throttle.set_mode(AUTO_THROTTLE_HOLD);
+        // }
+    }
+
     // if not armed set throttle to zero and exit immediately
     if (is_disarmed_or_landed()) {
         make_safe_spool_down();
@@ -827,6 +837,7 @@ void ModeAuto::wp_run()
     copter.failsafe_terrain_set_status(wp_nav->update_wpnav());
 
     // call z-axis position controller (wpnav should have already updated it's alt target)
+    pos_control->set_alt_target_from_climb_rate_ff(target_climb_rate, G_Dt, false);
     pos_control->update_z_controller();
 
     // call attitude controller
