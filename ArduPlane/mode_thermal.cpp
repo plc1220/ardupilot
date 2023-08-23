@@ -94,17 +94,17 @@ void ModeThermal::update_soaring()
     // Heading lined up and loiter status not good to continue. Need to restore previous mode.
     switch (loiterStatus) {
     case SoaringController::LoiterStatus::ALT_TOO_HIGH:
-        restore_mode("Too high", ModeReason::SOARING_ALT_TOO_HIGH);
+        restore_mode("Reached SOAR_ALT_MAX", ModeReason::SOARING_ALT_TOO_HIGH);
         break;
     case SoaringController::LoiterStatus::ALT_TOO_LOW:
-        restore_mode("Too low", ModeReason::SOARING_ALT_TOO_LOW);
+        restore_mode("Reached SOAR_ALT_MIN", ModeReason::SOARING_ALT_TOO_LOW);
         break;
     default:
     case SoaringController::LoiterStatus::THERMAL_WEAK:
-        restore_mode("Thermal ended", ModeReason::SOARING_THERMAL_ESTIMATE_DETERIORATED);
+        restore_mode("Climb below SOAR_VSPEED", ModeReason::SOARING_THERMAL_ESTIMATE_DETERIORATED);
         break;
     case SoaringController::LoiterStatus::DRIFT_EXCEEDED:
-        restore_mode("Drifted too far", ModeReason::SOARING_DRIFT_EXCEEDED);
+        restore_mode("Reached SOAR_MAX_DRIFT", ModeReason::SOARING_DRIFT_EXCEEDED);
         break;
     case SoaringController::LoiterStatus::EXIT_COMMANDED:
         restore_mode("Exit via RC switch", ModeReason::RC_COMMAND);
@@ -127,7 +127,7 @@ bool ModeThermal::exit_heading_aligned() const
     switch (plane.previous_mode->mode_number()) {
     case Mode::Number::AUTO: {
         //Get the lat/lon of next Nav waypoint after this one:
-        AP_Mission::Mission_Command current_nav_cmd = plane.mission.get_current_nav_cmd();;
+        AP_Mission::Mission_Command current_nav_cmd = plane.mission.get_current_nav_cmd();
         return plane.mode_loiter.isHeadingLinedUp(plane.next_WP_loc, current_nav_cmd.content.location);
     }
     case Mode::Number::FLY_BY_WIRE_B:

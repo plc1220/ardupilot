@@ -14,7 +14,6 @@
 
 // run at 400Hz on all systems
 # define MAIN_LOOP_RATE    400
-# define MAIN_LOOP_SECONDS 0.0025f
 
 #ifndef SURFACE_DEPTH_DEFAULT
 # define SURFACE_DEPTH_DEFAULT -10.0f // pressure sensor reading 10cm depth means craft is considered surfaced
@@ -33,14 +32,6 @@
 
 #ifndef CIRCLE_NAV_ENABLED
 # define CIRCLE_NAV_ENABLED ENABLED
-#endif
-
-//////////////////////////////////////////////////////////////////////////////
-// RPM
-//
-
-#ifndef RPM_ENABLED
-# define RPM_ENABLED DISABLED
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
@@ -101,28 +92,9 @@
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
-//  OPTICAL_FLOW
-#ifndef OPTFLOW
-# define OPTFLOW       DISABLED
-#endif
-
-//////////////////////////////////////////////////////////////////////////////
-//  gripper
-#ifndef GRIPPER_ENABLED
-# define GRIPPER_ENABLED DISABLED
-#endif
-
-//////////////////////////////////////////////////////////////////////////////
 // Nav-Guided - allows external nav computer to control vehicle
 #ifndef NAV_GUIDED
 # define NAV_GUIDED    ENABLED
-#endif
-
-//////////////////////////////////////////////////////////////////////////////
-// CAMERA TRIGGER AND CONTROL
-//
-#ifndef CAMERA
-# define CAMERA        DISABLED
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
@@ -218,6 +190,12 @@
 # define LOGGING_ENABLED                ENABLED
 #endif
 
+// Statistics
+#ifndef STATS_ENABLED
+ # define STATS_ENABLED (AP_STATS_ENABLED ? ENABLED : DISABLED)
+#endif
+
+
 // Default logging bitmask
 #ifndef DEFAULT_LOG_BITMASK
 # define DEFAULT_LOG_BITMASK \
@@ -235,17 +213,4 @@
     MASK_LOG_COMPASS | \
     MASK_LOG_CAMERA | \
     MASK_LOG_MOTBATT
-#endif
-
-// Enable/disable Fence
-#ifndef AC_FENCE
-#define AC_FENCE ENABLED
-#endif
-
-#ifndef AC_RALLY
-#define AC_RALLY   DISABLED
-#endif
-
-#ifndef AC_TERRAIN
-#define AC_TERRAIN DISABLED // Requires Rally enabled as well
 #endif

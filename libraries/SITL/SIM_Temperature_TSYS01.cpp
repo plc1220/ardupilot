@@ -125,7 +125,7 @@ uint32_t SITL::TSYS01::calculate_adc(float temperature) const
 
     // temperature_for_adc(9378708);  // should be 10.59
 
-    while (labs(max_adc - min_adc) > 1 && current_error > 0.05) {
+    while (labs(int32_t(max_adc - min_adc)) > 1 && current_error > 0.05) {
         uint32_t candidate_adc;
         if (bisect_down) {
             candidate_adc = (min_adc+(uint64_t)current_adc)/2;
@@ -175,9 +175,10 @@ void SITL::TSYS01::update(const class Aircraft &aircraft)
         break;
     case State::CONVERTING:
         if (time_in_state_ms() > 5) {
-            if (!is_equal(last_temperature, some_temperature)) {
-                last_temperature = some_temperature;
-                adc = calculate_adc(some_temperature);
+            const float temperature = get_sim_temperature();
+            if (!is_equal(last_temperature, temperature)) {
+                last_temperature = temperature;
+                adc = calculate_adc(temperature);
             }
             set_state(State::CONVERTED);
         }
@@ -187,3 +188,14 @@ void SITL::TSYS01::update(const class Aircraft &aircraft)
     }
 }
 
+float SITL::TSYS01::get_sim_temperature() const
+{
+    float sim_alt = AP::sitl()->state.altitude;
+    sim_alt += 2 * rand_float();
+
+    float sigma, delta, theta;
+    AP_Baro::SimpleAtmosphere(sim_alt * 0.001f, sigma, delta, theta);
+
+    // To Do: Add a sensor board temperature offset parameter
+    return (KELVIN_TO_C(SSL_AIR_TEMPERATURE * theta)) + 25.0;
+}

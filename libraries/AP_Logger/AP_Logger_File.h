@@ -22,8 +22,12 @@ class AP_Logger_File : public AP_Logger_Backend
 public:
     // constructor
     AP_Logger_File(AP_Logger &front,
-                   LoggerMessageWriter_DFLogStart *,
-                   const char *log_directory);
+                   LoggerMessageWriter_DFLogStart *);
+
+    static AP_Logger_Backend  *probe(AP_Logger &front,
+                                     LoggerMessageWriter_DFLogStart *ls) {
+        return new AP_Logger_File(front, ls);
+    }
 
     // initialisation
     void Init() override;
@@ -61,10 +65,12 @@ protected:
 
     bool WritesOK() const override;
     bool StartNewLogOK() const override;
+    void PrepForArming_start_logging() override;
 
 private:
     int _write_fd = -1;
     char *_write_filename;
+    bool last_log_is_marked_discard;
     uint32_t _last_write_ms;
 #if CONFIG_HAL_BOARD == HAL_BOARD_CHIBIOS
     bool _need_rtc_update;
@@ -94,6 +100,9 @@ private:
 
     bool file_exists(const char *filename) const;
     bool log_exists(const uint16_t lognum) const;
+
+    bool dirent_to_log_num(const dirent *de, uint16_t &log_num) const;
+    bool write_lastlog_file(uint16_t log_num);
 
     // write buffer
     ByteBuffer _writebuf{0};
@@ -134,6 +143,8 @@ private:
     void erase_next(void);
 
     const char *last_io_operation = "";
+
+    bool start_new_log_pending;
 };
 
 #endif // HAL_LOGGING_FILESYSTEM_ENABLED

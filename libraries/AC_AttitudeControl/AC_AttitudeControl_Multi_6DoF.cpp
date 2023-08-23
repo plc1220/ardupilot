@@ -1,4 +1,6 @@
-#ifdef ENABLE_SCRIPTING
+#include <AP_Scripting/AP_Scripting_config.h>
+
+#if AP_SCRIPTING_ENABLED
 
 #include "AC_AttitudeControl_Multi_6DoF.h"
 #include <AP_HAL/AP_HAL.h>
@@ -46,6 +48,26 @@ void AC_AttitudeControl_Multi_6DoF::input_euler_angle_roll_pitch_yaw(float euler
     set_forward_lateral(euler_pitch_angle_cd, euler_roll_angle_cd);
 
     AC_AttitudeControl_Multi::input_euler_angle_roll_pitch_yaw(euler_roll_angle_cd, euler_pitch_angle_cd, euler_yaw_angle_cd, slew_yaw);
+}
+
+// Command a thrust vector and heading rate
+void AC_AttitudeControl_Multi_6DoF::input_thrust_vector_rate_heading(const Vector3f& thrust_vector, float heading_rate_cds, bool slew_yaw)
+{
+    // convert thrust vector to a roll and pitch angles
+    // this negates the advantage of using thrust vector control, but works just fine
+    Vector3f angle_target = attitude_from_thrust_vector(thrust_vector, _ahrs.yaw).to_vector312();
+
+    input_euler_angle_roll_pitch_euler_rate_yaw(degrees(angle_target.x) * 100.0f, degrees(angle_target.y) * 100.0f, heading_rate_cds);
+}
+
+// Command a thrust vector, heading and heading rate
+void AC_AttitudeControl_Multi_6DoF::input_thrust_vector_heading(const Vector3f& thrust_vector, float heading_angle_cd, float heading_rate_cds)
+{
+    // convert thrust vector to a roll and pitch angles
+    Vector3f angle_target = attitude_from_thrust_vector(thrust_vector, _ahrs.yaw).to_vector312();
+
+    // note that we are throwing away heading rate here
+    input_euler_angle_roll_pitch_yaw(degrees(angle_target.x) * 100.0f, degrees(angle_target.y) * 100.0f, heading_angle_cd, true);
 }
 
 void AC_AttitudeControl_Multi_6DoF::set_forward_lateral(float &euler_pitch_angle_cd, float &euler_roll_angle_cd)
@@ -125,8 +147,9 @@ void AC_AttitudeControl_Multi_6DoF::input_angle_step_bf_roll_pitch_yaw(float rol
 }
 
 // Command a Quaternion attitude with feedforward and smoothing
-// not used anywhere in current code, panic in SITL so this implementaiton is not overlooked
-void AC_AttitudeControl_Multi_6DoF::input_quaternion(Quaternion attitude_desired_quat) {
+// attitude_desired_quat: is updated on each time_step (_dt) by the integral of the angular velocity
+// not used anywhere in current code, panic in SITL so this implementation is not overlooked
+void AC_AttitudeControl_Multi_6DoF::input_quaternion(Quaternion& attitude_desired_quat, Vector3f ang_vel_target) {
 #if CONFIG_HAL_BOARD == HAL_BOARD_SITL
     AP_HAL::panic("input_quaternion not implemented AC_AttitudeControl_Multi_6DoF");
 #endif
@@ -134,10 +157,10 @@ void AC_AttitudeControl_Multi_6DoF::input_quaternion(Quaternion attitude_desired
     _motors.set_lateral(0.0f);
     _motors.set_forward(0.0f);
 
-    AC_AttitudeControl_Multi::input_quaternion(attitude_desired_quat);
+    AC_AttitudeControl_Multi::input_quaternion(attitude_desired_quat, ang_vel_target);
 }
 
 
 AC_AttitudeControl_Multi_6DoF *AC_AttitudeControl_Multi_6DoF::_singleton = nullptr;
 
-#endif // ENABLE_SCRIPTING
+#endif // AP_SCRIPTING_ENABLED

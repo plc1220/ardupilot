@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Taken from https://github.com/PX4/ecl/commit/264c8c4e8681704e4719d0a03b848df8617c0863
 # and modified for ArduPilot
@@ -19,7 +18,7 @@ class CodeGenerator:
     def write_subexpressions(self,subexpressions):
         write_string = ""
         for item in subexpressions:
-            write_string = write_string + "const float " + str(item[0]) + " = " + self.get_ccode(item[1]) + ";\n"
+            write_string = write_string + "const ftype " + str(item[0]) + " = " + self.get_ccode(item[1]) + ";\n"
 
         write_string = write_string + "\n\n"
         self.file.write(write_string)

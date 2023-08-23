@@ -1,5 +1,9 @@
 #pragma once
 
+#include "AP_Notify_config.h"
+
+#if HAL_DISPLAY_ENABLED
+
 #include "NotifyDevice.h"
 
 #define ROW(Y)    ((Y * 10) + 6)
@@ -40,3 +44,4 @@ private:
     const uint16_t _send_text_valid_millis = 20000;
 };
 
+#endif  // HAL_DISPLAY_ENABLED

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Emit docs in a form acceptable to the old Ardupilot wordpress docs site
 """
@@ -51,7 +50,7 @@ DO NOT EDIT
         pass
 
     def emit(self, g):
-        tag = '%s Parameters' % g.name
+        tag = '%s Parameters' % g.reference
         t = '\n\n<h1>%s</h1>\n' % tag
 
         for param in g.params:

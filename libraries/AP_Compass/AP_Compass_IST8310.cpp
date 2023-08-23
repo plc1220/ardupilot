@@ -18,12 +18,15 @@
  */
 #include "AP_Compass_IST8310.h"
 
+#if AP_COMPASS_IST8310_ENABLED
+
 #include <stdio.h>
 #include <utility>
 
 #include <AP_HAL/AP_HAL.h>
 #include <AP_HAL/utility/sparse-endian.h>
 #include <AP_Math/AP_Math.h>
+#include <AP_BoardConfig/AP_BoardConfig.h>
 
 #define WAI_REG 0x0
 #define DEVICE_ID 0x10
@@ -170,9 +173,6 @@ bool AP_Compass_IST8310::init()
     _periodic_handle = _dev->register_periodic_callback(SAMPLING_PERIOD_USEC,
         FUNCTOR_BIND_MEMBER(&AP_Compass_IST8310::timer, void));
 
-    _perf_xfer_err = hal.util->perf_alloc(AP_HAL::Util::PC_COUNT, "IST8310_xfer_err");
-    _perf_bad_data = hal.util->perf_alloc(AP_HAL::Util::PC_COUNT, "IST8310_bad_data");
-
     return true;
 
 fail:
@@ -183,7 +183,6 @@ fail:
 void AP_Compass_IST8310::start_conversion()
 {
     if (!_dev->write_register(CNTL1_REG, CNTL1_VAL_SINGLE_MEASUREMENT_MODE)) {
-        hal.util->perf_count(_perf_xfer_err);
         _ignore_next_sample = true;
     }
 }
@@ -204,7 +203,6 @@ void AP_Compass_IST8310::timer()
 
     bool ret = _dev->read_registers(OUTPUT_X_L_REG, (uint8_t *) &buffer, sizeof(buffer));
     if (!ret) {
-        hal.util->perf_count(_perf_xfer_err);
         return;
     }
 
@@ -224,7 +222,6 @@ void AP_Compass_IST8310::timer()
     if (x > IST8310_MAX_VAL_XY || x < IST8310_MIN_VAL_XY ||
         y > IST8310_MAX_VAL_XY || y < IST8310_MIN_VAL_XY ||
         z > IST8310_MAX_VAL_Z  || z < IST8310_MIN_VAL_Z) {
-        hal.util->perf_count(_perf_bad_data);
         return;
     }
 
@@ -241,3 +238,5 @@ void AP_Compass_IST8310::read()
 {
     drain_accumulated_samples(_instance);
 }
+
+#endif  // AP_COMPASS_IST8310_ENABLED

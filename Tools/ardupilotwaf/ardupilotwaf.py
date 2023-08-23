@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # encoding: utf-8
 
 from __future__ import print_function
@@ -18,6 +17,7 @@ SOURCE_EXTS = [
 ]
 
 COMMON_VEHICLE_DEPENDENT_LIBRARIES = [
+    'AP_Airspeed',
     'AP_AccelCal',
     'AP_ADC',
     'AP_AHRS',
@@ -34,6 +34,7 @@ COMMON_VEHICLE_DEPENDENT_LIBRARIES = [
     'AP_HAL',
     'AP_HAL_Empty',
     'AP_InertialSensor',
+    'AP_KDECAN',
     'AP_Math',
     'AP_Mission',
     'AP_DAL',
@@ -63,6 +64,7 @@ COMMON_VEHICLE_DEPENDENT_LIBRARIES = [
     'AP_Module',
     'AP_Button',
     'AP_ICEngine',
+    'AP_Networking',
     'AP_Frsky_Telem',
     'AP_FlashStorage',
     'AP_Relay',
@@ -88,10 +90,10 @@ COMMON_VEHICLE_DEPENDENT_LIBRARIES = [
     'AC_Avoidance',
     'AP_LandingGear',
     'AP_RobotisServo',
-    'AP_ToshibaCAN',
     'AP_NMEA_Output',
     'AP_Filesystem',
     'AP_ADSB',
+    'AP_ADSB/sagetech-sdk',
     'AC_PID',
     'AP_SerialLED',
     'AP_EFI',
@@ -106,9 +108,25 @@ COMMON_VEHICLE_DEPENDENT_LIBRARIES = [
     'AP_WheelEncoder',
     'AP_ExternalAHRS',
     'AP_VideoTX',
+    'AP_FETtecOneWire',
+    'AP_TemperatureSensor',
+    'AP_Torqeedo',
+    'AP_CustomRotations',
+    'AP_AIS',
+    'AP_OpenDroneID',
+    'AP_CheckFirmware',
 ]
 
-def get_legacy_defines(sketch_name):
+def get_legacy_defines(sketch_name, bld):
+    # If we are building heli, we adjust the build directory define so that 
+    # we do not need to actually split heli and copter directories
+    if bld.cmd == 'heli' or 'heli' in bld.targets:
+        return [
+        'APM_BUILD_DIRECTORY=APM_BUILD_Heli',
+        'SKETCH="' + sketch_name + '"',
+        'SKETCHNAME="' + sketch_name + '"',
+        ]
+
     return [
         'APM_BUILD_DIRECTORY=APM_BUILD_' + sketch_name,
         'SKETCH="' + sketch_name + '"',
@@ -118,6 +136,7 @@ def get_legacy_defines(sketch_name):
 IGNORED_AP_LIBRARIES = [
     'doc',
     'AP_Scripting', # this gets explicitly included when it is needed and should otherwise never be globbed in
+    'AP_DDS',
 ]
 
 
@@ -129,6 +148,8 @@ def ap_autoconfigure(execute_method):
         """
         Wraps :py:func:`waflib.Context.Context.execute` on the context class
         """
+        if 'tools/' in self.targets:
+            raise Errors.WafError('\"tools\" name has been replaced with \"tool\" for build please use that!')
         if not Configure.autoconfig:
             return execute_method(self)
 
@@ -250,7 +271,7 @@ def ap_program(bld,
         program_name = bld.path.name
 
     if use_legacy_defines:
-        kw['defines'].extend(get_legacy_defines(bld.path.name))
+        kw['defines'].extend(get_legacy_defines(bld.path.name, bld))
 
     kw['features'] = kw.get('features', []) + bld.env.AP_PROGRAM_FEATURES
 
@@ -281,7 +302,10 @@ def ap_program(bld,
         tg.env.STLIB += [kw['use']]
 
     for group in program_groups:
-        _grouped_programs.setdefault(group, []).append(tg)
+        _grouped_programs.setdefault(group, {}).update({tg.name : tg})
+
+    return tg
+
 
 @conf
 def ap_example(bld, **kw):
@@ -304,6 +328,9 @@ def ap_stlib(bld, **kw):
     kw['ap_libraries'] = unique_list(kw['ap_libraries'] + bld.env.AP_LIBRARIES)
     for l in kw['ap_libraries']:
         bld.ap_library(l, kw['ap_vehicle'])
+
+    if 'dynamic_source' not in kw:
+        kw['dynamic_source'] = 'modules/DroneCAN/libcanard/dsdlc_generated/src/**.c'
 
     kw['features'] = kw.get('features', []) + ['cxx', 'cxxstlib']
     kw['target'] = kw['name']
@@ -330,7 +357,7 @@ def ap_stlib_target(self):
     self.target = '#%s' % os.path.join('lib', self.target)
 
 @conf
-def ap_find_tests(bld, use=[]):
+def ap_find_tests(bld, use=[], DOUBLE_PRECISION_SOURCES=[]):
     if not bld.env.HAS_GTEST:
         return
 
@@ -344,7 +371,7 @@ def ap_find_tests(bld, use=[]):
     includes = [bld.srcnode.abspath() + '/tests/']
 
     for f in bld.path.ant_glob(incl='*.cpp'):
-        ap_program(
+        t = ap_program(
             bld,
             features=features,
             includes=includes,
@@ -355,6 +382,16 @@ def ap_find_tests(bld, use=[]):
             use_legacy_defines=False,
             cxxflags=['-Wno-undef'],
         )
+        filename = os.path.basename(f.abspath())
+        if filename in DOUBLE_PRECISION_SOURCES:
+            t.env.CXXFLAGS = t.env.CXXFLAGS[:]
+            single_precision_option='-fsingle-precision-constant'
+            if single_precision_option in t.env.CXXFLAGS:
+                t.env.CXXFLAGS.remove(single_precision_option)
+            single_precision_option='-cl-single-precision-constant'
+            if single_precision_option in t.env.CXXFLAGS:
+                t.env.CXXFLAGS.remove(single_precision_option)
+            t.env.CXXFLAGS.append("-DALLOW_DOUBLE_MATH_FUNCTIONS")
 
 _versions = []
 
@@ -364,7 +401,7 @@ def ap_version_append_str(ctx, k, v):
 
 @conf
 def ap_version_append_int(ctx, k, v):
-    ctx.env['AP_VERSION_ITEMS'] += [(k,v)]
+    ctx.env['AP_VERSION_ITEMS'] += [(k, '{}'.format(os.environ.get(k, v)))]
 
 @conf
 def write_version_header(ctx, tgt):
@@ -493,20 +530,20 @@ def _select_programs_from_group(bld):
             groups = ['bin']
 
     if 'all' in groups:
-        groups = _grouped_programs.keys()
+        groups = list(_grouped_programs.keys())
+        groups.remove('bin')       # Remove `bin` so as not to duplicate all items in bin
 
     for group in groups:
         if group not in _grouped_programs:
             bld.fatal('Group %s not found' % group)
 
-        tg = _grouped_programs[group][0]
-        if bld.targets:
-            bld.targets += ',' + tg.name
-        else:
-            bld.targets = tg.name
+        target_names = _grouped_programs[group].keys()
 
-        for tg in _grouped_programs[group][1:]:
-            bld.targets += ',' + tg.name
+        for name in target_names:
+            if bld.targets:
+                bld.targets += ',' + name
+            else:
+                bld.targets = name
 
 def options(opt):
     opt.ap_groups = {
@@ -541,11 +578,20 @@ arducopter and upload it to my board".
         help='''Specify the port to be used with the --upload option. For example a port of /dev/ttyS10 indicates that serial port 10 shuld be used.
 ''')
 
+    g.add_option('--upload-force',
+        action='store_true',
+        help='''Override board type check and continue loading. Same as using uploader.py --force.
+''')
+
     g = opt.ap_groups['check']
 
     g.add_option('--check-verbose',
         action='store_true',
         help='Output all test programs.')
+
+    g.add_option('--define',
+        action='append',
+        help='Add C++ define to build.')
 
     g = opt.ap_groups['clean']
 
@@ -566,6 +612,14 @@ Address Sanitizer support llvm-symbolizer is required to be on the PATH.
 This option is only supported on macOS versions of clang.
 ''')
 
+    g.add_option('--ubsan',
+        action='store_true',
+        help='''Build using the gcc undefined behaviour sanitizer''')
+
+    g.add_option('--ubsan-abort',
+        action='store_true',
+        help='''Build using the gcc undefined behaviour sanitizer and abort on error''')
+    
 def build(bld):
     bld.add_pre_fun(_process_build_command)
     bld.add_pre_fun(_select_programs_from_group)

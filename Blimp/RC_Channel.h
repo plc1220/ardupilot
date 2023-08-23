@@ -16,7 +16,6 @@ protected:
 
 private:
 
-    void do_aux_function_armdisarm(const AuxSwitchPos ch_flag) override;
     void do_aux_function_change_mode(const Mode::Number mode,
                                      const AuxSwitchPos ch_flag);
     void do_aux_function_change_air_mode(const AuxSwitchPos ch_flag);
@@ -31,6 +30,7 @@ class RC_Channels_Blimp : public RC_Channels
 public:
 
     bool has_valid_input() const override;
+    bool in_rc_failsafe() const override;
 
     RC_Channel *get_arming_channel(void) const override;
 

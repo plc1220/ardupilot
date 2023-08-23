@@ -1,7 +1,6 @@
 #pragma once
 #include <AP_HAL/AP_HAL.h>
 
-#if !defined(HAL_BUILD_AP_PERIPH) && !defined(HAL_BOOTLOADER_BUILD)
 #include <stdint.h>
 #include <AP_HAL/AP_HAL_Boards.h>
 #include <AP_HAL/AP_HAL_Macros.h>
@@ -22,7 +21,6 @@ public:
     void signalI(uint32_t evt_mask) override;
 
     // Wait on an Event handle, method for internal use by EventHandle
-    bool wait(uint64_t duration, AP_HAL::EventHandle* evt_handle) override;
+    bool wait(uint16_t duration_us, AP_HAL::EventHandle* evt_handle) override;
 };
 #endif //#if CH_CFG_USE_EVENTS == TRUE
-#endif //#if !defined(HAL_BUILD_AP_PERIPH) && !defined(HAL_BOOTLOADER_BUILD)

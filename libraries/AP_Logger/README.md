@@ -71,6 +71,8 @@ Please keep the names consistent with Tools/autotest/param_metadata/param.py:33
 | 'v' | "V" | Volt|
 | 'P' | "Pa" | Pascal|
 | 'w' | "Ohm" | Ohm|
+| 'W' | "W" | watt |
+| 'X' | "W.h" | watt hour |
 | 'Y' | "us" | pulse width modulation in microseconds|
 | 'z' | "Hz" | Hertz|
 | '#' | "instance" | (e.g.)Sensor instance number|
@@ -98,5 +100,6 @@ tl;dr a GCS shouldn't/mustn't infer any scaling from the unit name
 | 'E' | 1e-5 ||
 | 'F' | 1e-6 ||
 | 'G' | 1e-7 ||
+| 'I' | 1e-9 ||
 | '!' | 3.6 | (milliampere \* hour => ampere \* second) and (km/h => m/s)|
 | '/' | 3600 | (ampere \* hour => ampere \* second)|

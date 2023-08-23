@@ -16,6 +16,8 @@
  */
 #include "AP_Compass_BMM150.h"
 
+#if AP_COMPASS_BMM150_ENABLED
+
 #include <AP_HAL/AP_HAL.h>
 
 #include <utility>
@@ -118,7 +120,7 @@ bool AP_Compass_BMM150::_load_trim_values()
         }
     }
     if (-1 == tries) {
-        hal.console->printf("BMM150: Failed to load trim registers\n");
+        DEV_PRINTF("BMM150: Failed to load trim registers\n");
         return false;
     }
 
@@ -175,7 +177,7 @@ bool AP_Compass_BMM150::init()
             break;
         }
         if (boot_tries == 0) {
-            hal.console->printf("BMM150: Wrong chip ID 0x%02x should be 0x%02x\n", val, CHIP_ID_VAL);
+            DEV_PRINTF("BMM150: Wrong chip ID 0x%02x should be 0x%02x\n", val, CHIP_ID_VAL);
         }
     }
     if (-1 == boot_tries) {
@@ -222,8 +224,6 @@ bool AP_Compass_BMM150::init()
     if (_force_external) {
         set_external(_compass_instance, true);
     }
-
-    _perf_err = hal.util->perf_alloc(AP_HAL::Util::PC_COUNT, "BMM150_err");
 
     // 2 retries for run
     _dev->set_retries(2);
@@ -298,7 +298,6 @@ void AP_Compass_BMM150::_update()
             _last_read_ms = now;
             _dev->write_register(POWER_AND_OPERATIONS_REG, SOFT_RESET);
             _dev->write_register(POWER_AND_OPERATIONS_REG, POWER_CONTROL_VAL, true);
-            hal.util->perf_count(_perf_err);
         }
         return;
     }
@@ -328,3 +327,5 @@ void AP_Compass_BMM150::read()
     drain_accumulated_samples(_compass_instance);
 }
 
+
+#endif  // AP_COMPASS_BMM150_ENABLED

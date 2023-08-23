@@ -21,9 +21,11 @@
 #include "AP_GPS.h"
 #include "AP_GPS_SBF.h"
 #include <GCS_MAVLink/GCS.h>
+#include <AP_InternalError/AP_InternalError.h>
 #include <stdio.h>
 #include <ctype.h>
 
+#if AP_GPS_SBF_ENABLED
 extern const AP_HAL::HAL& hal;
 
 #define SBF_DEBUGGING 0
@@ -54,6 +56,7 @@ do {                                            \
 
 constexpr const char *AP_GPS_SBF::portIdentifiers[];
 constexpr const char* AP_GPS_SBF::_initialisation_blob[];
+constexpr const char* AP_GPS_SBF::sbas_on_blob[];
 
 AP_GPS_SBF::AP_GPS_SBF(AP_GPS &_gps, AP_GPS::GPS_State &_state,
                        AP_HAL::UARTDriver *_port) :
@@ -65,7 +68,7 @@ AP_GPS_SBF::AP_GPS_SBF(AP_GPS &_gps, AP_GPS::GPS_State &_state,
 
     // if we ever parse RTK observations it will always be of type NED, so set it once
     state.rtk_baseline_coords_type = RTK_BASELINE_COORDINATE_SYSTEM_NED;
-    if (driver_options() & DriverOptions::SBF_UseBaseForYaw) {
+    if (option_set(AP_GPS::DriverOptions::SBF_UseBaseForYaw)) {
         state.gps_yaw_configured = true;
     }
 }
@@ -83,6 +86,9 @@ AP_GPS_SBF::read(void)
     uint32_t available_bytes = port->available();
     for (uint32_t i = 0; i < available_bytes; i++) {
         uint8_t temp = port->read();
+#if AP_GPS_DEBUG_LOGGING_ENABLED
+        log_data(&temp, 1);
+#endif
         ret |= parse(temp);
     }
 
@@ -117,8 +123,26 @@ AP_GPS_SBF::read(void)
                                 }
                                 break;
                             case Config_State::Blob:
-                                if (asprintf(&config_string,"%s\n", (char *)_initialisation_blob[_init_blob_index]) == -1) {
+                                if (asprintf(&config_string, "%s\n", _initialisation_blob[_init_blob_index]) == -1) {
                                     config_string = nullptr;
+                                }
+                                break;
+                            case Config_State::SBAS:
+                                switch ((AP_GPS::SBAS_Mode)gps._sbas_mode) {
+                                    case AP_GPS::SBAS_Mode::Disabled:
+                                        if (asprintf(&config_string, "%s\n", sbas_off) == -1) {
+                                            config_string = nullptr;
+                                        }
+                                        break;
+                                    case AP_GPS::SBAS_Mode::Enabled:
+                                        if (asprintf(&config_string, "%s\n", sbas_on_blob[_init_blob_index]) == -1) {
+                                            config_string = nullptr;
+                                        }
+                                        break;
+                                    case AP_GPS::SBAS_Mode::DoNotChange:
+                                        config_string = nullptr;
+                                        config_step = Config_State::Complete;
+                                        break;
                                 }
                                 break;
                             case Config_State::Complete:
@@ -313,6 +337,14 @@ AP_GPS_SBF::parse(uint8_t temp)
                                 case Config_State::Blob:
                                     _init_blob_index++;
                                     if (_init_blob_index >= ARRAY_SIZE(_initialisation_blob)) {
+                                        config_step = Config_State::SBAS;
+                                        _init_blob_index = 0;
+                                    }
+                                    break;
+                                case Config_State::SBAS:
+                                    _init_blob_index++;
+                                    if ((gps._sbas_mode == AP_GPS::SBAS_Mode::Disabled)
+                                        ||_init_blob_index >= ARRAY_SIZE(sbas_on_blob)) {
                                         config_step = Config_State::Complete;
                                     }
                                     break;
@@ -369,10 +401,7 @@ AP_GPS_SBF::process_message(void)
 
             state.have_vertical_velocity = true;
 
-            float ground_vector_sq = state.velocity[0] * state.velocity[0] + state.velocity[1] * state.velocity[1];
-            state.ground_speed = (float)safe_sqrt(ground_vector_sq);
-
-            state.ground_course = wrap_360(degrees(atan2f(state.velocity[1], state.velocity[0])));
+            velocity_to_speed_course(state);
             state.rtk_age_ms = temp.MeanCorrAge * 10;
 
             // value is expressed as twice the rms error = int16 * 0.01/2
@@ -387,6 +416,8 @@ AP_GPS_SBF::process_message(void)
             state.location.lat = (int32_t)(temp.Latitude * RAD_TO_DEG_DOUBLE * (double)1e7);
             state.location.lng = (int32_t)(temp.Longitude * RAD_TO_DEG_DOUBLE * (double)1e7);
             state.location.alt = (int32_t)(((float)temp.Height - temp.Undulation) * 1e2f);
+            state.have_undulation = true;
+            state.undulation = -temp.Undulation;
         }
 
         if (temp.NrSV != 255) {
@@ -504,7 +535,7 @@ AP_GPS_SBF::process_message(void)
 
 #if GPS_MOVING_BASELINE
             // copy the baseline data as a yaw source
-            if (driver_options() & DriverOptions::SBF_UseBaseForYaw) {
+            if (option_set(AP_GPS::DriverOptions::SBF_UseBaseForYaw)) {
                 calculate_moving_base_yaw(temp.info.Azimuth * 0.01f + 180.0f,
                                           Vector3f(temp.info.DeltaNorth, temp.info.DeltaEast, temp.info.DeltaUp).length(),
                                           -temp.info.DeltaUp);
@@ -529,15 +560,19 @@ AP_GPS_SBF::process_message(void)
 void AP_GPS_SBF::broadcast_configuration_failure_reason(void) const
 {
     if (gps._auto_config != AP_GPS::GPS_AUTO_CONFIG_DISABLE &&
-        _init_blob_index < ARRAY_SIZE(_initialisation_blob)) {
-        GCS_SEND_TEXT(MAV_SEVERITY_INFO, "GPS %u: SBF is not fully configured (%u/%u)", state.instance + 1,
-                        _init_blob_index, (unsigned)ARRAY_SIZE(_initialisation_blob));
+        config_step != Config_State::Complete) {
+        GCS_SEND_TEXT(MAV_SEVERITY_INFO, "GPS %u: SBF is not fully configured (%u/%u/%u/%u)",
+                                         state.instance + 1,
+                                         (unsigned)config_step,
+                                         _init_blob_index,
+                                         (unsigned)ARRAY_SIZE(_initialisation_blob),
+                                         (unsigned)ARRAY_SIZE(sbas_on_blob));
     }
 }
 
 bool AP_GPS_SBF::is_configured (void) const {
-    return (gps._auto_config == AP_GPS::GPS_AUTO_CONFIG_DISABLE ||
-             _init_blob_index >= ARRAY_SIZE(_initialisation_blob));
+    return ((gps._auto_config == AP_GPS::GPS_AUTO_CONFIG_DISABLE) ||
+            (config_step == Config_State::Complete));
 }
 
 bool AP_GPS_SBF::is_healthy (void) const {
@@ -582,3 +617,4 @@ bool AP_GPS_SBF::prepare_for_arming(void) {
 
     return is_logging;
 }
+#endif

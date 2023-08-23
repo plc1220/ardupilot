@@ -22,6 +22,8 @@
 #include "AP_GPS.h"
 #include "GPS_Backend.h"
 
+#if AP_GPS_SBF_ENABLED
+
 #define SBF_DISK_ACTIVITY (1 << 7)
 #define SBF_DISK_FULL     (1 << 8)
 #define SBF_DISK_MOUNTED  (1 << 9)
@@ -43,7 +45,9 @@ public:
 
     void broadcast_configuration_failure_reason(void) const override;
 
+#if HAL_GCS_ENABLED
     bool supports_mavlink_gps_rtk_message(void) const override { return true; };
+#endif
 
     // get the velocity lag, returns true if the driver is confident in the returned value
     bool get_lag(float &lag_sec) const override { lag_sec = 0.08f; return true; } ;
@@ -70,6 +74,7 @@ private:
         Baud_Rate,
         SSO,
         Blob,
+        SBAS,
         Complete
     };
     Config_State config_step;
@@ -83,6 +88,12 @@ private:
     GPS_SBF_EXTRA_CONFIG
 #endif
     };
+    static constexpr const char* sbas_off = "sst, -SBAS";
+    static constexpr const char* sbas_on_blob[] = {
+                                                   "snt,+GEOL1+GEOL5",
+                                                   "sst,+SBAS",
+                                                   "ssbc,auto,Operational,MixedSystems,auto",
+                                                  };
     uint32_t _config_last_ack_time;
 
     const char* _port_enable = "\nSSSSSSSSSS\n";
@@ -255,3 +266,4 @@ private:
     uint8_t portLength;
     bool readyForCommand;
 };
+#endif

@@ -15,12 +15,18 @@
 #pragma once
 
 #include <AP_Param/AP_Param.h>
-#include <AP_AHRS/AP_AHRS.h>
-#include <AP_SerialManager/AP_SerialManager.h>
+#include <Filter/Filter.h>
+#include <GCS_MAVLink/GCS_MAVLink.h>
 
-#define WINDVANE_DEFAULT_PIN 15                     // default wind vane sensor analog pin
-#define WINDSPEED_DEFAULT_SPEED_PIN 14              // default pin for reading speed from ModernDevice rev p wind sensor
-#define WINDSPEED_DEFAULT_TEMP_PIN 13               // default pin for reading temperature from ModernDevice rev p wind sensor
+#ifndef WINDVANE_DEFAULT_PIN
+#define WINDVANE_DEFAULT_PIN -1                     // default wind vane sensor analog pin
+#endif
+#ifndef WINDSPEED_DEFAULT_SPEED_PIN
+#define WINDSPEED_DEFAULT_SPEED_PIN -1              // default pin for reading speed from ModernDevice rev p wind sensor
+#endif
+#ifndef WINDSPEED_DEFAULT_TEMP_PIN
+#define WINDSPEED_DEFAULT_TEMP_PIN -1               // default pin for reading temperature from ModernDevice rev p wind sensor
+#endif
 #define WINDSPEED_DEFAULT_VOLT_OFFSET 1.346f        // default voltage offset between speed and temp pins from ModernDevice rev p wind sensor
 
 class AP_WindVane_Backend;
@@ -40,8 +46,7 @@ public:
     AP_WindVane();
 
     /* Do not allow copies */
-    AP_WindVane(const AP_WindVane &other) = delete;
-    AP_WindVane &operator=(const AP_WindVane&) = delete;
+    CLASS_NO_COPY(AP_WindVane);
 
     static AP_WindVane *get_singleton();
 
@@ -52,7 +57,7 @@ public:
     bool wind_speed_enabled() const;
 
     // Initialize the Wind Vane object and prepare it for use
-    void init(const AP_SerialManager& serial_manager);
+    void init(const class AP_SerialManager& serial_manager);
 
     // update wind vane
     void update();
@@ -82,7 +87,7 @@ public:
     Sailboat_Tack get_current_tack() const { return _current_tack; }
 
     // record home heading for use as wind direction if no sensor is fitted
-    void record_home_heading() { _home_heading = AP::ahrs().yaw; }
+    void record_home_heading();
 
     // start calibration routine
     bool start_direction_calibration();
@@ -134,20 +139,20 @@ private:
     float _direction_true_raw;                      // wind's true direction in radians (0 = North)
     float _direction_true;                          // wind's true direction in radians (0 = North) - filtered
     float _direction_tack;                          // filtered apparent wind used to determin the current tack
-    LowPassFilterFloat _direction_apparent_sin_filt = LowPassFilterFloat(2.0f);
-    LowPassFilterFloat _direction_apparent_cos_filt = LowPassFilterFloat(2.0f);
-    LowPassFilterFloat _direction_true_sin_filt = LowPassFilterFloat(2.0f);
-    LowPassFilterFloat _direction_true_cos_filt = LowPassFilterFloat(2.0f);
-    LowPassFilterFloat _tack_sin_filt = LowPassFilterFloat(0.1f);
-    LowPassFilterFloat _tack_cos_filt = LowPassFilterFloat(0.1f);
+    LowPassFilterFloat _direction_apparent_sin_filt{2.0f};
+    LowPassFilterFloat _direction_apparent_cos_filt{2.0f};
+    LowPassFilterFloat _direction_true_sin_filt{2.0f};
+    LowPassFilterFloat _direction_true_cos_filt{2.0f};
+    LowPassFilterFloat _tack_sin_filt{0.1f};
+    LowPassFilterFloat _tack_cos_filt{0.1f};
 
     // wind speed variables
     float _speed_apparent_raw;                      // wind's apparent speed in m/s
     float _speed_apparent;                          // wind's apparent speed in m/s - filtered
     float _speed_true_raw;                          // wind's true estimated speed in m/s
     float _speed_true;                              // wind's true estimated speed in m/s - filtered
-    LowPassFilterFloat _speed_apparent_filt = LowPassFilterFloat(2.0f);
-    LowPassFilterFloat _speed_true_filt = LowPassFilterFloat(2.0f);
+    LowPassFilterFloat _speed_apparent_filt{2.0f};
+    LowPassFilterFloat _speed_true_filt{2.0f};
 
     // current tack
     Sailboat_Tack _current_tack;
@@ -161,8 +166,10 @@ private:
         WINDVANE_PWM_PIN        = 2,
         WINDVANE_ANALOG_PIN     = 3,
         WINDVANE_NMEA           = 4,
+#if CONFIG_HAL_BOARD == HAL_BOARD_SITL
         WINDVANE_SITL_TRUE      = 10,
         WINDVANE_SITL_APPARENT  = 11,
+#endif
     };
 
     enum Speed_type {
@@ -171,8 +178,10 @@ private:
         WINDVANE_WIND_SENSOR_REV_P   = 2,
         WINDSPEED_RPM                = 3,
         WINDSPEED_NMEA               = 4,
+#if CONFIG_HAL_BOARD == HAL_BOARD_SITL
         WINDSPEED_SITL_TRUE          = 10,
         WINDSPEED_SITL_APPARENT      = 11,
+#endif
     };
 
     static AP_WindVane *_singleton;

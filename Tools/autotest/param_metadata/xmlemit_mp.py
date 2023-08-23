@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 from xml.sax.saxutils import escape, quoteattr
 
 from emit import Emit
@@ -43,7 +41,7 @@ class XmlEmitMP(Emit):
     def emit(self, g):
         t = ""
         if not self.skip_name:
-            self.gname = g.name
+            self.gname = g.reference
             if self.gname == "ArduCopter":
                 self.gname = "ArduCopter2"
             if self.gname == "APMrover2" or self.gname == "Rover":

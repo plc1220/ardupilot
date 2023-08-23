@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <cmath>
 
-#define AC_PI_2D_FILT_HZ_DEFAULT  20.0f   // default input filter frequency
 #define AC_PI_2D_FILT_HZ_MIN      0.01f   // minimum input filter frequency
 
 /// @class	AC_PI_2D
@@ -19,6 +18,8 @@ public:
     // constructor
     AC_PI_2D(float initial_p, float initial_i, float initial_imax, float initial_filt_hz, float dt);
 
+    CLASS_NO_COPY(AC_PI_2D);
+
     // set time step in seconds
     void set_dt(float dt);
 
@@ -26,7 +27,7 @@ public:
     //  input is filtered before the PI controllers are run
     //  this should be called before any other calls to get_p, get_i or get_d
     void set_input(const Vector2f &input);
-    void set_input(const Vector3f &input) { set_input(Vector2f(input.x, input.y)); }
+    void set_input(const Vector3f &input) { set_input(Vector2f{input.x, input.y}); }
 
     // get_pi - get results from pid controller
     Vector2f get_pi();
@@ -90,4 +91,10 @@ private:
     Vector2f _integrator;   // integrator value
     Vector2f _input;        // last input for derivative
     float _filt_alpha;      // input filter alpha
+
+    const float default_kp;
+    const float default_ki;
+    const float default_imax;
+    const float default_filt_hz;
+
 };

@@ -5,6 +5,7 @@
  *       boolean failsafe reflects the current state
  */
 
+#include <AP_Vehicle/AP_MultiCopter.h>
 
 bool Blimp::failsafe_option(FailsafeOption opt) const
 {
@@ -120,7 +121,7 @@ void Blimp::failsafe_gcs_check()
     } else if (last_gcs_update_ms > gcs_timeout_ms && !failsafe.gcs) {
         // New GCS failsafe event, trigger events
         set_failsafe_gcs(true);
-        // failsafe_gcs_on_event();
+        arming.disarm(AP_Arming::Method::GCSFAILSAFE); // failsafe_gcs_on_event() should replace this when written
     }
 }
 
@@ -153,5 +154,25 @@ void Blimp::do_failsafe_action(Failsafe_Action action, ModeReason reason)
         arming.disarm(AP_Arming::Method::FAILSAFE_ACTION_TERMINATE);
     }
     break;
+    }
+}
+
+// check for gps glitch failsafe
+void Blimp::gpsglitch_check()
+{
+    // get filter status
+    nav_filter_status filt_status = inertial_nav.get_filter_status();
+    bool gps_glitching = filt_status.flags.gps_glitching;
+
+    // log start or stop of gps glitch.  AP_Notify update is handled from within AP_AHRS
+    if (ap.gps_glitching != gps_glitching) {
+        ap.gps_glitching = gps_glitching;
+        if (gps_glitching) {
+            AP::logger().Write_Error(LogErrorSubsystem::GPS, LogErrorCode::GPS_GLITCH);
+            gcs().send_text(MAV_SEVERITY_CRITICAL,"GPS Glitch");
+        } else {
+            AP::logger().Write_Error(LogErrorSubsystem::GPS, LogErrorCode::ERROR_RESOLVED);
+            gcs().send_text(MAV_SEVERITY_CRITICAL,"GPS Glitch cleared");
+        }
     }
 }

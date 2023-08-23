@@ -34,7 +34,7 @@ void Tracker::update_tracker_position()
     Location temp_loc;
 
     // REVISIT: what if we lose lock during a mission and the antenna is moving?
-    if (ahrs.get_position(temp_loc)) {
+    if (ahrs.get_location(temp_loc)) {
         stationary = false;
         current_loc = temp_loc;
     }
@@ -194,4 +194,20 @@ void Tracker::update_armed_disarmed() const
     } else {
         AP_Notify::flags.armed = false;
     }
+}
+
+/*
+  Returns the pan and tilt for use by onvif camera in scripting
+  the output will be mapped to -1..1 from limits specified by PITCH_MIN
+  and PITCH_MAX for tilt, and YAW_RANGE for pan
+*/
+bool Tracker::get_pan_tilt_norm(float &pan_norm, float &tilt_norm) const
+{
+    float pitch = nav_status.pitch;
+    float bearing = nav_status.bearing;
+    // set tilt value
+    tilt_norm = (((constrain_float(pitch+g.pitch_trim, g.pitch_min, g.pitch_max) - g.pitch_min)*2.0f)/(g.pitch_max - g.pitch_min)) - 1;
+    // set yaw value
+    pan_norm = (wrap_360(bearing+g.yaw_trim)*2.0f/(g.yaw_range)) - 1;
+    return true;
 }
